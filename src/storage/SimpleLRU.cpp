@@ -88,7 +88,7 @@ bool SimpleLRU::_add_new_node(const std::string &key, const std::string &value) 
 
     if (_lru_head) {
         new_node->prev = _lru_tail;
-        _lru_tail->next.swap(new_node); //check!!!!
+        _lru_tail->next.swap(new_node);
         _lru_tail = _lru_tail->next.get();
     } else {
         _lru_head.swap(new_node);
