@@ -10,13 +10,8 @@ bool SimpleLRU::Put(const std::string &key, const std::string &value) {
     if (found_pair != _lru_index.end()) {
         _delete_node(&found_pair->second.get());
     }
-
-    int status;
-    if ((status = _add_new_node(key, value))) {
-        _lru_index.insert(std::make_pair(std::reference_wrapper<const std::string>(_lru_tail->key),
-                    std::reference_wrapper<lru_node>(*_lru_tail)));
-    }
-    return status;
+    
+    return _add_new_node(key, value);
 }
 
 // See MapBasedGlobalLockImpl.h
@@ -26,12 +21,7 @@ bool SimpleLRU::PutIfAbsent(const std::string &key, const std::string &value) {
         return false;
     }
 
-    int status;
-    if ((status = _add_new_node(key, value))) {
-        _lru_index.insert(std::make_pair(std::reference_wrapper<const std::string>(_lru_tail->key),
-                    std::reference_wrapper<lru_node>(*_lru_tail)));
-    }
-    return status;
+    return _add_new_node(key, value);
 }
 
 // See MapBasedGlobalLockImpl.h
@@ -43,12 +33,7 @@ bool SimpleLRU::Set(const std::string &key, const std::string &value) {
         return false;
     }
 
-    int status;
-    if ((status = _add_new_node(key, value))) {
-        _lru_index.insert(std::make_pair(std::reference_wrapper<const std::string>(_lru_tail->key),
-                    std::reference_wrapper<lru_node>(*_lru_tail)));
-    }
-    return status;
+    return _add_new_node(key, value);
 }
 
 // See MapBasedGlobalLockImpl.h
@@ -95,6 +80,9 @@ bool SimpleLRU::_add_new_node(const std::string &key, const std::string &value) 
         _lru_tail = _lru_head.get();
     }
 
+    _lru_index.insert(std::make_pair(std::reference_wrapper<const std::string>(_lru_tail->key),
+                    std::reference_wrapper<lru_node>(*_lru_tail)));
+
     return true;
 }
 
@@ -115,13 +103,6 @@ bool SimpleLRU::_delete_old_node() {
         _lru_head.reset();
         _lru_tail = nullptr;
     }
-    /*if (_lru_head->next) {
-            _lru_head = std::move(_lru_head->next);
-            _lru_head->prev = nullptr;
-        } else {
-            _lru_head.reset(nullptr);
-            _lru_tail = nullptr;
-    }*/
 
     return true;
 }
