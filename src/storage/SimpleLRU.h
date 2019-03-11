@@ -52,7 +52,7 @@ public:
 private:
     // LRU cache node
     using lru_node = struct lru_node {
-        std::string key;
+        const std::string key;
         std::string value;
         lru_node *prev;
         std::unique_ptr<lru_node> next;
@@ -82,7 +82,10 @@ private:
 
     bool _add_new_node(const std::string &key, const std::string &value);
     bool _delete_old_node();
-    bool _delete_node(lru_node *node);
+    bool _delete_node(std::map<std::reference_wrapper<const std::string>, 
+                                      std::reference_wrapper<lru_node>, 
+                                      std::less<std::string>>::iterator &iter);
+    bool _update_node(lru_node *node, const std::string &value);
 };
 
 } // namespace Backend

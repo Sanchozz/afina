@@ -8,7 +8,13 @@ namespace Backend {
 bool SimpleLRU::Put(const std::string &key, const std::string &value) { 
     auto found_pair = _lru_index.find(key);
     if (found_pair != _lru_index.end()) {
-        _delete_node(&found_pair->second.get());
+        lru_node *node_to_update = &found_pair->second.get();
+        bool status =  _update_node(node_to_update, value);
+        if (!status) {
+            return false;
+        }
+        found_pair->second.get().value = value;
+        return true;
     }
     
     return _add_new_node(key, value);
@@ -28,12 +34,16 @@ bool SimpleLRU::PutIfAbsent(const std::string &key, const std::string &value) {
 bool SimpleLRU::Set(const std::string &key, const std::string &value) {
     auto found_pair = _lru_index.find(key);
     if (found_pair != _lru_index.end()) {
-        _delete_node(&found_pair->second.get());
-    } else {
-        return false;
+        lru_node *node_to_update = &found_pair->second.get();
+        bool status =  _update_node(node_to_update, value);
+        if (!status) {
+            return false;
+        }
+        found_pair->second.get().value = value;
+        return true;
     }
 
-    return _add_new_node(key, value);
+    return false;
 }
 
 // See MapBasedGlobalLockImpl.h
@@ -43,7 +53,7 @@ bool SimpleLRU::Delete(const std::string &key) {
         return false;
     }
 
-    return _delete_node(&found_pair->second.get());
+    return _delete_node(found_pair);
 }
 
 // See MapBasedGlobalLockImpl.h
@@ -107,12 +117,15 @@ bool SimpleLRU::_delete_old_node() {
     return true;
 }
 
-bool SimpleLRU::_delete_node(lru_node *node) {
+bool SimpleLRU::_delete_node(std::map<std::reference_wrapper<const std::string>, 
+                                      std::reference_wrapper<lru_node>, 
+                                      std::less<std::string>>::iterator &iter)  {
+    lru_node *node = &iter->second.get();
     if (!node) {
         return false;
     }
 
-    _lru_index.erase(_lru_head->key);
+    _lru_index.erase(iter);
     if (!node->prev) {
         _delete_old_node();
     } else {
@@ -127,6 +140,36 @@ bool SimpleLRU::_delete_node(lru_node *node) {
             delete tmp;
         }
     }
+    return true;
+}
+
+bool SimpleLRU::_update_node(lru_node *node, const std::string &value) {
+    if (_max_size < node->key.size() + value.size() - node->value.size()) {
+        return false;
+    }
+
+    if (node != _lru_tail) { // != tail?
+        std::unique_ptr<lru_node> tmp(nullptr);
+        if (node->prev) {
+            tmp.swap(node->next);
+            node->prev->next.swap(tmp);
+            node->next->prev = node->prev;
+        } else {
+            tmp.swap(_lru_head->next);
+            _lru_head.swap(tmp);
+            _lru_head->prev = nullptr;
+            tmp->prev = _lru_tail;
+            
+        }
+        _lru_tail->next.swap(tmp);
+        _lru_tail = node;
+    }
+
+    while (_max_size - _cur_size < value.size() - _lru_tail->value.size()) {
+        _delete_old_node();
+    }
+
+    _cur_size += value.size() - _lru_tail->value.size();
     return true;
 }
 
